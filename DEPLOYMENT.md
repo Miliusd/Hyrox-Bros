@@ -8,10 +8,10 @@ The simplest free setup is **Supabase** for the database and sign-in, **GitHub**
 2. Open **SQL Editor** in the project dashboard.
 3. Run `supabase/migrations/0001_init.sql`.
 4. Run `supabase/migrations/0002_workout_result_calories.sql`.
-5. Edit `supabase/seed.sql`: replace all five example emails and display names with the real people. Keep one person as `coach`, then run the edited SQL.
+5. Edit `supabase/seed.sql`: choose one lowercase username for each person, update the five display names, keep one person as `coach`, then run the edited SQL. The stored value must be `username@hyroxbros.local`, as shown in the file.
 6. Open **Project Settings → API** and copy the project URL and anonymous/public key. Never use the service-role key in this app.
 
-The email addresses must match exactly. The database trigger rejects every account that is not on this allowlist.
+The internal username addresses must match exactly. The database trigger rejects every account that is not on this allowlist. These are identifiers only; they are not real email addresses and no messages are sent to them.
 
 ## 2. Put the project on GitHub
 
@@ -25,32 +25,26 @@ Create a private GitHub repository, then commit and push this folder. Do not com
 
    - `NEXT_PUBLIC_SUPABASE_URL` — the Supabase project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the Supabase anonymous/public key
-   - `NEXT_PUBLIC_SITE_URL` — the final Vercel URL, such as `https://hyroxbros.vercel.app`
 
-4. Deploy. If Vercel assigned a different URL, update `NEXT_PUBLIC_SITE_URL` and redeploy once.
+4. Deploy.
 
-## 4. Configure magic-link redirects
+## 4. Configure username and password sign-in
 
-In Supabase, open **Authentication → URL Configuration**:
+In Supabase, open **Authentication → Providers → Email**:
 
-- Set **Site URL** to the final Vercel URL.
-- Add `https://YOUR-VERCEL-DOMAIN/auth/callback` to **Redirect URLs**.
-- Keep `http://localhost:3000/auth/callback` as an additional redirect for local development.
+- Keep the Email provider enabled. Supabase uses it internally for password accounts.
+- Turn **Confirm email** off. This is essential: it creates the session immediately and prevents confirmation emails and email rate limits.
+- Save the provider settings.
 
-In **Authentication → Providers**, ensure Email is enabled. Passwords are not needed.
+No SMTP setup, email template or redirect URL is needed for normal username/password sign-in. Supabase still securely hashes passwords and manages sessions; the app never stores plain-text passwords.
 
-Then open **Authentication → Email Templates → Magic Link** and replace the template with:
-
-```html
-<h2>Your HyroxBros sign-in link</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">Sign in</a></p>
-```
-
-This token-hash callback works even when the email link opens in a different browser from the one that requested it.
+If you previously tested magic-link sign-in, open **Authentication → Users** and delete those old real-email test users before creating the five username accounts. Running the updated seed removes the old real-email entries from `allowed_members`.
 
 ## 5. Invite the crew
 
-Share the Vercel URL with the four friends whose addresses are in `allowed_members`. Each person enters that exact email on the login page and uses the magic link. Their profile is created automatically on first sign-in.
+Share the Vercel URL and each person's username privately. On their first visit, each person selects **First time? Create account**, enters the allowlisted username and chooses a password of at least eight characters. After that, they use **Sign in** with the same username and password. Their profile is created automatically with the name and role from `allowed_members`.
+
+For the supplied seed, the usernames are `milius99`, `vaidmas123`, `kristupas.pole`, `taduskis9` and `pliutikas15`. Change them before running the seed if you prefer different names.
 
 ## Updating the app later
 
@@ -58,7 +52,7 @@ Push changes to the GitHub repository. Vercel automatically builds and publishes
 
 ## Final safety checks
 
-- Confirm a non-allowlisted email cannot create an account.
+- Confirm a non-allowlisted username cannot create an account.
 - Confirm all five people can sign in and see the same crew calendar.
 - Confirm an athlete can log their own result and the coach can manage crew results.
 - Keep the Supabase service-role key and database password out of GitHub and Vercel client variables.
