@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { logResult } from "@/lib/actions/workouts";
 import type { WorkoutType } from "@/lib/constants";
@@ -44,6 +45,7 @@ export function ResultLogger({
   initialResult?: ExistingWorkoutResult;
   initialDurationSec?: number;
 }) {
+  const router = useRouter();
   const [duration, setDuration] = useState(initialResult ? formatDuration(initialResult.durationSec) : initialDurationSec ? formatDuration(initialDurationSec) : "");
   const [calories, setCalories] = useState(initialResult?.calories?.toString() ?? "");
   const [distanceKm, setDistanceKm] = useState(initialResult?.distanceMeters ? String(Number((initialResult.distanceMeters / 1000).toFixed(2))) : "");
@@ -120,6 +122,7 @@ export function ResultLogger({
         setSaved(true);
         const pbText = result.newPbs?.length ? ` New PB: ${result.newPbs.join(", ")}.` : "";
         setMessage(`${initialResult ? "Result updated." : "Workout completed."}${pbText}${result.warning ? ` ${result.warning}` : ""}`);
+        router.refresh();
       } else {
         setSaved(false);
         setMessage(result.error ?? "Could not save result");

@@ -162,6 +162,8 @@ export async function logResult(input: unknown): Promise<Result> {
 
     revalidatePath("/");
     revalidatePath(`/workout/${parsed.data.workoutId}`);
+    revalidatePath(`/workout/${parsed.data.workoutId}/edit`);
+    revalidatePath("/fitness");
     revalidatePath("/pbs");
     return {
       ok: true,
