@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { DurationInput } from "@/components/duration-input";
 import { quickLogActivity } from "@/lib/actions/workouts";
 import { WORKOUT_TYPES, type WorkoutType } from "@/lib/constants";
 import { calculateHeartRateLoad, calorieAdjustmentFactor, heartRateIntensity } from "@/lib/load";
-import { parseDuration } from "@/lib/workout";
 
 const suggestions = ["Basketball", "Football", "Padel", "Swim", "Bike", "Hike", "Climbing", "Skiing"];
 const DISTANCE_TYPES: WorkoutType[] = ["run", "erg", "hyrox_sim", "compromised"];
@@ -17,7 +17,7 @@ export function QuickLogForm({ members, currentUserId }: { members: Member[]; cu
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [athleteId, setAthleteId] = useState(currentUserId);
-  const [duration, setDuration] = useState("45:00");
+  const [durationSec, setDurationSec] = useState(45 * 60);
   const [calories, setCalories] = useState("");
   const [distanceKm, setDistanceKm] = useState("");
   const [averageHr, setAverageHr] = useState("");
@@ -25,7 +25,6 @@ export function QuickLogForm({ members, currentUserId }: { members: Member[]; cu
   const [feeling, setFeeling] = useState<number>();
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
-  const durationSec = parseDuration(duration) ?? 0;
   const caloriesValue = calories ? Number(calories) : undefined;
   const selectedMember = members.find((member) => member.id === athleteId) ?? members[0];
   const maxHrBpm = selectedMember?.max_hr_bpm;
@@ -41,7 +40,7 @@ export function QuickLogForm({ members, currentUserId }: { members: Member[]; cu
     event.preventDefault();
     setError("");
     if (!durationSec) {
-      setError("Enter a valid duration such as 45:00.");
+      setError("Enter a workout duration.");
       return;
     }
     if (!maxHrBpm) {
@@ -79,12 +78,12 @@ export function QuickLogForm({ members, currentUserId }: { members: Member[]; cu
       <div className="flex flex-wrap gap-2">
         {suggestions.map((item) => <button type="button" className="chip" key={item} onClick={() => setTitle(item)}>{item}</button>)}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <label><span className="label">Date</span><input type="date" className="input" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
         <label><span className="label">Who</span><select className="input" value={athleteId} onChange={(event) => setAthleteId(event.target.value)}>{members.map((member) => <option value={member.id} key={member.id}>{member.emoji} {member.display_name}</option>)}</select></label>
-        <label><span className="label">Duration</span><input className="input" inputMode="text" value={duration} onChange={(event) => setDuration(event.target.value)} placeholder="mm:ss" required /></label>
-        <label><span className="label">Calories burned</span><input className="input" type="number" inputMode="numeric" min="1" value={calories} onChange={(event) => setCalories(event.target.value)} placeholder="Optional" /></label>
       </div>
+      <DurationInput value={durationSec} onChange={setDurationSec} />
+      <label className="block max-w-xs"><span className="label">Calories burned</span><input className="input" type="number" inputMode="numeric" min="1" value={calories} onChange={(event) => setCalories(event.target.value)} placeholder="Optional" /></label>
       <fieldset>
         <legend className="label">Type</legend>
         <div className="flex flex-wrap gap-2">

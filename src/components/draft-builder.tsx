@@ -52,7 +52,7 @@ export function DraftBuilder({ division, initialDraft }: { division: Division; i
     });
   }
 
-  return <form className="space-y-5" onSubmit={submit}>
+  return <form className="form-with-sticky-action space-y-5" onSubmit={submit}>
     <section className="card grid gap-4 sm:grid-cols-2">
       <label><span className="label">Draft name</span><input className="input" required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Sled technique + intervals" /></label>
       <label><span className="label">Short description</span><input className="input" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="When or why to use it" /></label>
@@ -61,7 +61,7 @@ export function DraftBuilder({ division, initialDraft }: { division: Division; i
     <StructureEditor value={structure} onChange={setStructure} division={division} />
     <label><span className="label">Notes</span><textarea className="input min-h-28 py-3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Technique cues, pacing or substitutions…" /></label>
     {message && <p className="rounded-xl border border-red-800 bg-red-950/40 p-3 text-red-300">{message}</p>}
-    <div className="sticky bottom-20 z-30 flex items-center justify-between gap-4 rounded-2xl border border-ink-600 bg-ink-900/95 p-3 shadow-2xl backdrop-blur md:bottom-4">
+    <div className="sticky-action-bar">
       <div><div className="text-sm text-ink-400">Draft duration</div><b>{formatDuration(duration)}</b></div>
       <div className="flex gap-2">{initialDraft && <button type="button" className="btn-ghost border-red-800 text-red-300" disabled={pending} onClick={remove}>Delete</button>}<button className="btn-primary" disabled={pending}>{pending ? "Saving…" : initialDraft ? "Save draft" : "Create draft"}</button></div>
     </div>

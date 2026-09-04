@@ -2,10 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { DurationInput } from "@/components/duration-input";
 import { logResult } from "@/lib/actions/workouts";
 import type { WorkoutType } from "@/lib/constants";
 import { calculateHeartRateLoad, heartRateIntensity } from "@/lib/load";
-import { formatDuration, parseDuration, type WorkoutStructure } from "@/lib/workout";
+import type { WorkoutStructure } from "@/lib/workout";
 
 type ActualStrength = { load: string; reps: string };
 export type StrengthResultInput = { stepId: string; round: number; exercise: string; actualLoadKg: number; actualReps: number };
@@ -46,7 +47,7 @@ export function ResultLogger({
   initialDurationSec?: number;
 }) {
   const router = useRouter();
-  const [duration, setDuration] = useState(initialResult ? formatDuration(initialResult.durationSec) : initialDurationSec ? formatDuration(initialDurationSec) : "");
+  const [durationSec, setDurationSec] = useState(initialResult?.durationSec ?? initialDurationSec ?? 0);
   const [calories, setCalories] = useState(initialResult?.calories?.toString() ?? "");
   const [distanceKm, setDistanceKm] = useState(initialResult?.distanceMeters ? String(Number((initialResult.distanceMeters / 1000).toFixed(2))) : "");
   const [averageHr, setAverageHr] = useState(initialResult?.averageHrBpm?.toString() ?? "");
@@ -56,12 +57,11 @@ export function ResultLogger({
   const [message, setMessage] = useState("");
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
-  const seconds = parseDuration(duration) ?? 0;
   const averageHrBpm = Number(averageHr);
   const caloriesValue = calories ? Number(calories) : undefined;
-  const canCalculate = seconds > 0 && Boolean(maxHrBpm) && averageHrBpm >= 40 && averageHrBpm <= Number(maxHrBpm);
+  const canCalculate = durationSec > 0 && Boolean(maxHrBpm) && averageHrBpm >= 40 && averageHrBpm <= Number(maxHrBpm);
   const load = canCalculate
-    ? calculateHeartRateLoad(seconds, averageHrBpm, Number(maxHrBpm), type, caloriesValue)
+    ? calculateHeartRateLoad(durationSec, averageHrBpm, Number(maxHrBpm), type, caloriesValue)
     : initialResult?.load ?? 0;
   const intensityPercent = canCalculate ? Math.round(heartRateIntensity(averageHrBpm, Number(maxHrBpm)) * 100) : null;
   const distanceRelevant = DISTANCE_TYPES.includes(type);
@@ -76,7 +76,7 @@ export function ResultLogger({
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!seconds) {
+    if (!durationSec) {
       setSaved(false);
       setMessage("Enter a valid total time.");
       return;
@@ -110,7 +110,7 @@ export function ResultLogger({
     startTransition(async () => {
       const result = await logResult({
         workoutId,
-        durationSec: seconds,
+        durationSec,
         calories: caloriesValue,
         distanceMeters: distanceKm ? Number(distanceKm) * 1000 : undefined,
         averageHrBpm,
@@ -137,8 +137,8 @@ export function ResultLogger({
         <p className="mt-1 text-sm text-ink-400">{initialResult ? "Review or correct what was recorded." : "Record what you actually completed."}</p>
       </div>
       {!maxHrBpm && <p className="rounded-xl border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">Set this athlete&apos;s maximum heart rate in their profile before saving a result.</p>}
+      <DurationInput value={durationSec} onChange={setDurationSec} label="Total time" />
       <div className={`grid gap-3 ${distanceRelevant ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-        <label><span className="label">Total time</span><input className="input" inputMode="text" value={duration} onChange={(event) => setDuration(event.target.value)} placeholder="mm:ss" required /></label>
         <label><span className="label">Calories</span><input className="input" type="number" inputMode="numeric" min="1" value={calories} onChange={(event) => setCalories(event.target.value)} placeholder="Optional" /></label>
         <label>
           <span className="label">Average HR (bpm)</span>
@@ -148,17 +148,36 @@ export function ResultLogger({
         {distanceRelevant && <label><span className="label">Distance km</span><input className="input" type="number" inputMode="decimal" min="0.01" step="0.01" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} placeholder="Optional" /></label>}
       </div>
       {strengthSteps.length > 0 && (
-        <fieldset className="rounded-xl border border-ink-700 bg-ink-900 p-3">
-          <legend className="px-1 font-black">Actual strength work</legend>
-          <p className="mb-3 text-sm text-ink-400">Enter the heaviest completed set for each exercise. A heavier load than your previous best becomes a PB automatically.</p>
+        <fieldset className="rounded-xl border border-ink-700 bg-ink-900 p-3 sm:p-4">
+          <legend className="px-1 font-black">Strength results</legend>
+          <p className="mb-4 text-sm leading-relaxed text-ink-400">Record the heaviest completed set for each exercise. Enter both weight and reps; a new heaviest weight becomes a PB automatically.</p>
           <div className="space-y-3">
-            {strengthSteps.map((step) => (
-              <div className="grid grid-cols-[1fr_5.5rem_5.5rem] items-end gap-2" key={step.id}>
-                <div className="pb-3 font-bold">{step.label ?? "Strength exercise"}</div>
-                <label><span className="label">Load kg</span><input className="input" type="number" inputMode="decimal" min="0.5" step="0.5" value={actualStrength[step.id]?.load ?? ""} onChange={(event) => updateStrength(step.id, "load", event.target.value)} placeholder={step.loadKg?.toString() ?? "kg"} /></label>
-                <label><span className="label">Reps</span><input className="input" type="number" inputMode="numeric" min="1" step="1" value={actualStrength[step.id]?.reps ?? ""} onChange={(event) => updateStrength(step.id, "reps", event.target.value)} placeholder={step.mode === "reps" ? step.value.toString() : "reps"} /></label>
-              </div>
-            ))}
+            {strengthSteps.map((step, index) => {
+              const actual = actualStrength[step.id];
+              const complete = Boolean(actual?.load && actual?.reps);
+              const planned = [step.loadKg ? `${step.loadKg} kg` : null, step.mode === "reps" ? `${step.value} reps` : null].filter(Boolean).join(" × ");
+              return (
+                <div className={`rounded-xl border p-3 transition ${complete ? "border-brand-500/60 bg-brand-400/5" : "border-ink-700 bg-ink-850"}`} key={step.id}>
+                  <div className="flex items-center gap-3">
+                    <span className={`grid size-8 shrink-0 place-items-center rounded-lg text-sm font-black ${complete ? "bg-brand-400 text-ink-950" : "bg-ink-700 text-ink-200"}`} aria-hidden="true">{complete ? "✓" : index + 1}</span>
+                    <div className="min-w-0">
+                      <div className="truncate font-black">{step.label ?? "Strength exercise"}</div>
+                      <div className="mt-0.5 text-sm text-ink-400">{planned ? `Planned · ${planned}` : "Heaviest completed set"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <label>
+                      <span className="label">Weight <span className="font-normal text-ink-400">kg</span></span>
+                      <input className="input text-center font-bold" type="number" inputMode="decimal" min="0.5" step="0.5" value={actual?.load ?? ""} onChange={(event) => updateStrength(step.id, "load", event.target.value)} placeholder={step.loadKg?.toString() ?? "0"} />
+                    </label>
+                    <label>
+                      <span className="label">Reps</span>
+                      <input className="input text-center font-bold" type="number" inputMode="numeric" min="1" step="1" value={actual?.reps ?? ""} onChange={(event) => updateStrength(step.id, "reps", event.target.value)} placeholder={step.mode === "reps" ? step.value.toString() : "0"} />
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </fieldset>
       )}
@@ -168,7 +187,7 @@ export function ResultLogger({
       </div>
       <textarea className="input min-h-20 py-3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="How did it go?" />
       {message && <p className={saved ? "text-emerald-300" : "text-red-300"} role="status">{message}</p>}
-      <button className="btn-primary w-full" disabled={pending || !seconds || !maxHrBpm}>{pending ? "Saving…" : initialResult ? "Save result changes" : "Mark complete"}</button>
+      <button className="btn-primary w-full" disabled={pending || !durationSec || !maxHrBpm}>{pending ? "Saving…" : initialResult ? "Save result changes" : "Mark complete"}</button>
     </form>
   );
 }
