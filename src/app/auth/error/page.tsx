@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function AuthErrorPage() { return <main className="grid min-h-screen place-items-center px-4"><div className="card max-w-md text-center"><div className="text-4xl">⚠️</div><h1 className="mt-3 text-2xl font-black">Sign-in link failed</h1><p className="mt-2 text-ink-400">The link may have expired, or this email is not on the crew allowlist.</p><Link href="/login" className="btn-primary mt-5">Try again</Link></div></main>; }
