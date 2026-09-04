@@ -25,7 +25,9 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
         <div>
           <p className="text-sm font-bold uppercase tracking-[.2em] text-brand-400">{workout.date} · {workout.profiles.emoji} {workout.profiles.display_name}</p>
           <h1 className="mt-1 text-3xl font-black">{workout.title}</h1>
-          <p className="mt-2 text-ink-400">{formatDuration(workout.planned_duration_sec)} planned · {workout.planned_load} load</p>
+          <p className="mt-2 text-ink-400">
+            {result ? `${formatDuration(result.duration_sec)} · ${result.load} actual load` : `${formatDuration(workout.planned_duration_sec)} planned${workout.status === "completed" ? " · result missing" : ""}`}
+          </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <Link href={`/workout/${id}/edit`} className="btn-ghost">Edit workout</Link>
@@ -77,7 +79,18 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
               </div>
             )}
           </section>
-        ) : <ResultLogger workoutId={id} type={workout.type as WorkoutType} structure={structure} maxHrBpm={workout.profiles.max_hr_bpm ? Number(workout.profiles.max_hr_bpm) : null} />}
+        ) : (
+          <div className="space-y-3">
+            {workout.status === "completed" && <p className="rounded-xl border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">This older workout was marked complete before its result was saved. Re-enter the missing values below; the planned duration has been filled in for you.</p>}
+            <ResultLogger
+              workoutId={id}
+              type={workout.type as WorkoutType}
+              structure={structure}
+              maxHrBpm={workout.profiles.max_hr_bpm ? Number(workout.profiles.max_hr_bpm) : null}
+              initialDurationSec={workout.status === "completed" ? Number(workout.planned_duration_sec) : undefined}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

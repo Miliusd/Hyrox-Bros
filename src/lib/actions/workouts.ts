@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { WorkoutType } from "@/lib/constants";
-import { calculateHeartRateLoad, calculatePlannedLoad, compatibilityRpeFromHeartRate } from "@/lib/load";
+import { calculateHeartRateLoad, compatibilityRpeFromHeartRate } from "@/lib/load";
 import { requireProfile } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { resultSchema, workoutSchema } from "@/lib/validation";
@@ -29,13 +29,11 @@ export async function saveWorkout(input: unknown): Promise<Result> {
     const target = (await db.from("profiles").select("threshold_pace_sec_per_km").eq("id", parsed.data.athleteId).single()).data;
     const pace = target?.threshold_pace_sec_per_km ?? 270;
     let duration = Math.round(estimateStructureSeconds(parsed.data.structure, pace));
-    let load = calculatePlannedLoad(duration, parsed.data.type as WorkoutType);
     const hasPlannedSteps = parsed.data.structure.blocks.some((block) => block.steps.length > 0);
     if (parsed.data.id && !hasPlannedSteps) {
-      const existing = await db.from("workouts").select("planned_duration_sec,planned_load").eq("id", parsed.data.id).single();
+      const existing = await db.from("workouts").select("planned_duration_sec").eq("id", parsed.data.id).single();
       if (existing.error) throw existing.error;
       duration = Number(existing.data.planned_duration_sec);
-      load = Number(existing.data.planned_load);
     }
     const values = {
       athlete_id: parsed.data.athleteId,
@@ -45,7 +43,7 @@ export async function saveWorkout(input: unknown): Promise<Result> {
       structure: parsed.data.structure,
       coach_notes: parsed.data.coachNotes,
       planned_duration_sec: duration,
-      planned_load: load,
+      planned_load: 0,
     };
     const query = parsed.data.id
       ? db.from("workouts").update(values).eq("id", parsed.data.id)
@@ -119,7 +117,8 @@ export async function logResult(input: unknown): Promise<Result> {
       step_results: parsed.data.stepResults,
     }, { onConflict: "workout_id" });
     if (error) throw error;
-    await db.from("workouts").update({ status: "completed" }).eq("id", parsed.data.workoutId);
+    const completed = await db.from("workouts").update({ status: "completed" }).eq("id", parsed.data.workoutId);
+    if (completed.error) throw completed.error;
 
     const strengthBests = new Map<string, { exercise: string; load: number; reps: number }>();
     for (const step of parsed.data.stepResults) {
@@ -187,6 +186,7 @@ export async function quickLogActivity(input: {
   feeling?: number;
   notes?: string;
 }): Promise<Result> {
+  let createdWorkoutId: string | undefined;
   try {
     const db = await createClient();
     const me = await requireProfile();
@@ -204,10 +204,11 @@ export async function quickLogActivity(input: {
       type: input.type,
       structure: { blocks: [] },
       planned_duration_sec: input.durationSec,
-      planned_load: load,
-      status: "completed",
+      planned_load: 0,
+      status: "planned",
     }).select("id").single();
     if (error) throw error;
+    createdWorkoutId = data.id;
     const result = await db.from("workout_results").insert({
       workout_id: data.id,
       athlete_id: input.athleteId,
@@ -222,9 +223,15 @@ export async function quickLogActivity(input: {
       notes: input.notes,
     });
     if (result.error) throw result.error;
+    const completed = await db.from("workouts").update({ status: "completed" }).eq("id", data.id);
+    if (completed.error) throw completed.error;
     revalidatePath("/");
     return { ok: true, id: data.id };
   } catch (error) {
+    if (createdWorkoutId) {
+      const db = await createClient();
+      await db.from("workouts").delete().eq("id", createdWorkoutId);
+    }
     return { ok: false, error: error instanceof Error ? error.message : "Could not log activity" };
   }
 }

@@ -35,14 +35,16 @@ export function ResultLogger({
   structure,
   maxHrBpm,
   initialResult,
+  initialDurationSec,
 }: {
   workoutId: string;
   type: WorkoutType;
   structure: WorkoutStructure;
   maxHrBpm: number | null;
   initialResult?: ExistingWorkoutResult;
+  initialDurationSec?: number;
 }) {
-  const [duration, setDuration] = useState(initialResult ? formatDuration(initialResult.durationSec) : "");
+  const [duration, setDuration] = useState(initialResult ? formatDuration(initialResult.durationSec) : initialDurationSec ? formatDuration(initialDurationSec) : "");
   const [calories, setCalories] = useState(initialResult?.calories?.toString() ?? "");
   const [distanceKm, setDistanceKm] = useState(initialResult?.distanceMeters ? String(Number((initialResult.distanceMeters / 1000).toFixed(2))) : "");
   const [averageHr, setAverageHr] = useState(initialResult?.averageHrBpm?.toString() ?? "");

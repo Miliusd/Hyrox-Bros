@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { saveWorkout } from "@/lib/actions/workouts";
 import { WORKOUT_TYPES, type WorkoutType } from "@/lib/constants";
 import type { Division } from "@/lib/hyrox";
-import { calculatePlannedLoad } from "@/lib/load";
 import { estimateStructureSeconds, formatDuration, type WorkoutStructure } from "@/lib/workout";
 import { StructureEditor } from "./structure-editor";
 
 type Member = { id: string; display_name: string; emoji: string; division: Division };
+export type WorkoutDraft = { id: string; title: string; type: WorkoutType; structure: WorkoutStructure; notes: string };
 export type InitialWorkout = {
   id: string;
   title: string;
@@ -19,7 +19,6 @@ export type InitialWorkout = {
   structure: WorkoutStructure;
   coachNotes: string;
   plannedDurationSec: number;
-  plannedLoad: number;
 };
 
 export function WorkoutBuilder({
@@ -27,29 +26,41 @@ export function WorkoutBuilder({
   members,
   initialAthleteId,
   initialWorkout,
+  drafts = [],
+  initialDraftId,
 }: {
   date?: string;
   members: Member[];
   initialAthleteId: string;
   initialWorkout?: InitialWorkout;
+  drafts?: WorkoutDraft[];
+  initialDraftId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [title, setTitle] = useState(initialWorkout?.title ?? "");
+  const startingDraft = !initialWorkout ? drafts.find((draft) => draft.id === initialDraftId) : undefined;
+  const [draftId, setDraftId] = useState(startingDraft?.id ?? "");
+  const [title, setTitle] = useState(initialWorkout?.title ?? startingDraft?.title ?? "");
   const [workoutDate, setWorkoutDate] = useState(initialWorkout?.date ?? date);
   const [athleteId, setAthleteId] = useState(initialWorkout?.athleteId ?? initialAthleteId);
-  const [notes, setNotes] = useState(initialWorkout?.coachNotes ?? "");
-  const [structure, setStructure] = useState<WorkoutStructure>(initialWorkout?.structure ?? { blocks: [] });
-  const [type, setType] = useState<WorkoutType>(initialWorkout?.type ?? "hyrox_sim");
+  const [notes, setNotes] = useState(initialWorkout?.coachNotes ?? startingDraft?.notes ?? "");
+  const [structure, setStructure] = useState<WorkoutStructure>(initialWorkout?.structure ?? startingDraft?.structure ?? { blocks: [] });
+  const [type, setType] = useState<WorkoutType>(initialWorkout?.type ?? startingDraft?.type ?? "hyrox_sim");
   const [error, setError] = useState("");
   const selectedMember = members.find((member) => member.id === athleteId) ?? members[0];
-  const stats = useMemo(() => {
-    if (initialWorkout && !structure.blocks.some((block) => block.steps.length > 0)) {
-      return { seconds: initialWorkout.plannedDurationSec, load: initialWorkout.plannedLoad };
-    }
-    const seconds = estimateStructureSeconds(structure);
-    return { seconds, load: calculatePlannedLoad(seconds, type) };
-  }, [initialWorkout, structure, type]);
+  const plannedSeconds = initialWorkout && !structure.blocks.some((block) => block.steps.length > 0)
+    ? initialWorkout.plannedDurationSec
+    : estimateStructureSeconds(structure);
+
+  function applyDraft(id: string) {
+    setDraftId(id);
+    const draft = drafts.find((candidate) => candidate.id === id);
+    if (!draft) return;
+    setTitle(draft.title);
+    setType(draft.type);
+    setStructure(draft.structure);
+    setNotes(draft.notes);
+  }
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -75,6 +86,10 @@ export function WorkoutBuilder({
 
   return (
     <form className="space-y-5" onSubmit={submit}>
+      {!initialWorkout && drafts.length > 0 && <section className="card">
+        <label><span className="label">Start from a plan</span><select className="input" value={draftId} onChange={(event) => applyDraft(event.target.value)}><option value="">Blank workout</option>{drafts.map((draft) => <option value={draft.id} key={draft.id}>{draft.title}</option>)}</select></label>
+        <p className="mt-2 text-sm text-ink-400">Choosing a draft fills the workout details. You can still change anything before saving.</p>
+      </section>}
       <div className="grid gap-4 sm:grid-cols-2">
         <label>
           <span className="label">Title</span>
@@ -108,7 +123,7 @@ export function WorkoutBuilder({
       </label>
       {error && <p className="rounded-xl border border-red-800 bg-red-950/40 p-3 text-red-300">{error}</p>}
       <div className="sticky bottom-20 z-30 flex items-center justify-between gap-4 rounded-2xl border border-ink-600 bg-ink-900/95 p-3 shadow-2xl backdrop-blur md:bottom-4">
-        <div><div className="text-sm text-ink-400">Estimate</div><b>{formatDuration(stats.seconds)} · {stats.load} load</b></div>
+        <div><div className="text-sm text-ink-400">Planned duration</div><b>{formatDuration(plannedSeconds)}</b></div>
         <button className="btn-primary" disabled={pending}>{pending ? "Saving…" : initialWorkout ? "Save changes" : "Save workout"}</button>
       </div>
     </form>

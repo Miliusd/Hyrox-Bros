@@ -23,10 +23,6 @@ export function calculateHeartRateLoad(durationSec: number, averageHrBpm: number
   return loadFromIntensity(durationSec, heartRateIntensity(averageHrBpm, maxHrBpm), type, calories);
 }
 
-export function calculatePlannedLoad(durationSec: number, type: WorkoutType) {
-  return loadFromIntensity(durationSec, 0.7, type);
-}
-
 // Kept only because the existing database requires an integer in its legacy RPE column.
 export function compatibilityRpeFromHeartRate(averageHrBpm: number, maxHrBpm: number) {
   return Math.round(clamp(heartRateIntensity(averageHrBpm, maxHrBpm) * 10, 1, 10));

@@ -31,17 +31,18 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
           structure: workout.structure as WorkoutStructure,
           coachNotes: workout.coach_notes ?? "",
           plannedDurationSec: Number(workout.planned_duration_sec),
-          plannedLoad: Number(workout.planned_load),
         }}
       />
-      {result && (
+      {(result || workout.status === "completed") && (
         <div className="mt-6">
+          {!result && <p className="mb-3 rounded-xl border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">This older workout was marked complete before its result was saved. Re-enter the missing values below; the planned duration has been filled in for you.</p>}
           <ResultLogger
             workoutId={workout.id}
             type={workout.type as WorkoutType}
             structure={workout.structure as WorkoutStructure}
             maxHrBpm={workout.profiles.max_hr_bpm ? Number(workout.profiles.max_hr_bpm) : null}
-            initialResult={{
+            initialDurationSec={!result ? Number(workout.planned_duration_sec) : undefined}
+            initialResult={result ? {
               durationSec: Number(result.duration_sec),
               calories: result.calories ? Number(result.calories) : null,
               distanceMeters: result.distance_m ? Number(result.distance_m) : null,
@@ -50,7 +51,7 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
               feeling: result.feeling ? Number(result.feeling) : null,
               notes: result.notes ?? "",
               stepResults,
-            }}
+            } : undefined}
           />
         </div>
       )}

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
-import { ApplyTemplateForm } from "@/components/apply-template-form";
+import { DraftBuilder } from "@/components/draft-builder";
+import type { WorkoutType } from "@/lib/constants";
 import { getTemplateDetail } from "@/lib/data";
-import { getMembers,requireProfile } from "@/lib/session";
-const days=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-export default async function TemplatePage({params}:{params:Promise<{id:string}>}){const {id}=await params;const [template,members,me]=await Promise.all([getTemplateDetail(id),getMembers(),requireProfile()]);if(!template)notFound();return <div className="py-6"><p className="text-sm font-bold uppercase tracking-[.2em] text-brand-400">{template.weeks}-week plan</p><h1 className="mt-1 text-3xl font-black">{template.name}</h1><div className="mt-5 grid gap-4 lg:grid-cols-[1fr_20rem]"><div className="space-y-4">{Array.from({length:template.weeks},(_,index)=>index+1).map((week)=><section className="card" key={week}><h2 className="text-xl font-black">Week {week}</h2><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{days.map((day,index)=>{const item=template.plan_template_items.find((candidate: {week:number;day_of_week:number})=>candidate.week===week&&candidate.day_of_week===index+1);return <div className="min-h-28 rounded-xl border border-ink-700 bg-ink-900 p-2" key={day}><span className="text-xs font-bold text-ink-400">{day}</span><span className={`mt-2 block text-sm ${item?"font-bold":"text-ink-600"}`}>{item?.title??"Empty"}</span></div>})}</div></section>)}</div><ApplyTemplateForm templateId={id} members={members} currentUserId={me.id}/></div></div>}
+import { requireProfile } from "@/lib/session";
+import type { WorkoutStructure } from "@/lib/workout";
+
+export default async function TemplatePage({params}:{params:Promise<{id:string}>}){const {id}=await params;const [template,me]=await Promise.all([getTemplateDetail(id),requireProfile()]);if(!template)notFound();const item=[...(template.plan_template_items??[])].sort((a,b)=>a.week-b.week||a.day_of_week-b.day_of_week)[0];if(!item)notFound();return <div className="py-6"><p className="text-sm font-bold uppercase tracking-[.2em] text-brand-400">Training draft</p><h1 className="mt-1 mb-6 text-3xl font-black">Edit draft</h1><DraftBuilder division={me.division} initialDraft={{id:template.id,itemId:item.id,title:item.title??template.name,description:template.description??"",type:item.type as WorkoutType,structure:item.structure as WorkoutStructure,notes:item.notes??""}}/></div>}
