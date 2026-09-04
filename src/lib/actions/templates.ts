@@ -33,6 +33,6 @@ export async function saveDraft(input:unknown){
 }
 
 export async function deleteDraft(id:string){
-  try{const db=await createClient();await requireProfile();const {error}=await db.from("plan_templates").delete().eq("id",id);if(error)throw error;revalidatePath("/templates");return{ok:true};}
+  try{const db=await createClient();await requireProfile();const {data,error}=await db.from("plan_templates").delete().eq("id",id).select("id").maybeSingle();if(error)throw error;if(!data)throw new Error("Draft not found or you do not have permission to delete it.");revalidatePath("/templates");return{ok:true};}
   catch(error){return{ok:false,error:error instanceof Error?error.message:"Could not delete draft"};}
 }
