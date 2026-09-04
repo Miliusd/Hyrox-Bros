@@ -39,13 +39,13 @@ export function formatDuration(seconds: number) {
 }
 
 export function parseDuration(value: string) {
-  const parts = value.trim().split(":").map(Number);
+  const parts = value.trim().replace(/[.,]/g, ":").split(":").map(Number);
   if (!parts.length || parts.some((part) => !Number.isFinite(part) || part < 0) || parts.length > 3) return null;
   return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
 export function formatPace(secondsPerKm: number) { const seconds = Math.round(secondsPerKm); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
-export function parsePace(value: string) { const match = value.trim().match(/^(\d{1,2}):([0-5]\d)$/); if (!match) return null; const seconds = Number(match[1]) * 60 + Number(match[2]); return seconds >= 120 && seconds <= 900 ? seconds : null; }
+export function parsePace(value: string) { const match = value.trim().replace(/[.,]/g, ":").match(/^(\d{1,2}):([0-5]\d)$/); if (!match) return null; const seconds = Number(match[1]) * 60 + Number(match[2]); return seconds >= 120 && seconds <= 900 ? seconds : null; }
 
 export function describeQuantity(step: WorkoutStep) { return step.mode === "duration" ? formatDuration(step.value) : `${step.value} ${step.mode === "distance" ? "m" : step.mode}`; }
 export function stepTitle(step: WorkoutStep) { return step.label || (step.station ? STATIONS.find((item) => item.id === step.station)?.name : step.kind[0].toUpperCase() + step.kind.slice(1)) || "Step"; }

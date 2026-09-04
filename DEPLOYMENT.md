@@ -8,8 +8,9 @@ The simplest free setup is **Supabase** for the database and sign-in, **GitHub**
 2. Open **SQL Editor** in the project dashboard.
 3. Run `supabase/migrations/0001_init.sql`.
 4. Run `supabase/migrations/0002_workout_result_calories.sql`.
-5. Edit `supabase/seed.sql`: choose one lowercase username for each person, update the five display names, keep one person as `coach`, then run the edited SQL. The stored value must be `username@hyroxbros.local`, as shown in the file.
-6. Open **Project Settings → API** and copy the project URL and anonymous/public key. Never use the service-role key in this app.
+5. Run `supabase/migrations/0003_authenticated_privileges.sql`.
+6. Edit `supabase/seed.sql`: choose one lowercase username for each person, update the five display names, keep one person as `coach`, then run the edited SQL. The stored value must be `username@hyroxbros.local`, as shown in the file.
+7. Open **Project Settings → API** and copy the project URL and anonymous/public key. Never use the service-role key in this app.
 
 The internal username addresses must match exactly. The database trigger rejects every account that is not on this allowlist. These are identifiers only; they are not real email addresses and no messages are sent to them.
 
