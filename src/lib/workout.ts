@@ -1,16 +1,14 @@
 import { DEFAULT_THRESHOLD_PACE } from "./constants";
 import { defaultLoadFor, raceValueFor, STATIONS, type Division, type StationId } from "./hyrox";
 
-export type WorkoutStep = { id: string; kind: "run" | "station" | "strength" | "rest" | "other"; station?: StationId; label?: string; mode: "distance" | "duration" | "reps" | "calories"; value: number; loadKg?: number; rpe?: number; restSec?: number; notes?: string };
+export type WorkoutStep = { id: string; kind: "run" | "station" | "strength" | "rest" | "other"; station?: StationId; label?: string; mode: "distance" | "duration" | "reps" | "calories"; value: number; loadKg?: number; restSec?: number; notes?: string };
 export type WorkoutBlock = { id: string; rounds: number; label?: string; steps: WorkoutStep[] };
 export type WorkoutStructure = { blocks: WorkoutBlock[] };
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export function estimateStepSeconds(step: WorkoutStep, thresholdPaceSecPerKm = DEFAULT_THRESHOLD_PACE) {
   let seconds = 0;
   if (step.mode === "duration") seconds = step.value;
-  else if (step.kind === "run" && step.mode === "distance") seconds = (step.value / 1000) * thresholdPaceSecPerKm / clamp((step.rpe ?? 8) / 8, 0.6, 1.15);
+  else if (step.kind === "run" && step.mode === "distance") seconds = (step.value / 1000) * thresholdPaceSecPerKm;
   else if (step.kind === "station" && step.station) {
     const station = STATIONS.find((item) => item.id === step.station)!;
     seconds = station.benchmarkSec * (step.value / raceValueFor("men_open", step.station));
@@ -21,16 +19,6 @@ export function estimateStepSeconds(step: WorkoutStep, thresholdPaceSecPerKm = D
 
 export function estimateStructureSeconds(structure: WorkoutStructure, pace = DEFAULT_THRESHOLD_PACE) {
   return structure.blocks.reduce((total, block) => total + block.rounds * block.steps.reduce((sum, step) => sum + estimateStepSeconds(step, pace), 0), 0);
-}
-
-export function structureAverageRpe(structure: WorkoutStructure, pace = DEFAULT_THRESHOLD_PACE) {
-  let weighted = 0; let seconds = 0;
-  for (const block of structure.blocks) for (let round = 0; round < block.rounds; round += 1) for (const step of block.steps) {
-    if (step.kind === "rest" || !step.rpe) continue;
-    const duration = estimateStepSeconds({ ...step, restSec: 0 }, pace);
-    weighted += duration * step.rpe; seconds += duration;
-  }
-  return seconds ? weighted / seconds : 5;
 }
 
 export function formatDuration(seconds: number) {
@@ -54,8 +42,8 @@ export function summariseStructure(structure: WorkoutStructure) { const steps = 
 
 function simulation(division: Division, count: number): WorkoutStructure {
   const steps: WorkoutStep[] = STATIONS.slice(0, count).flatMap((station, index) => [
-    { id: `run-${index + 1}`, kind: "run", label: `Run ${index + 1}`, mode: "distance", value: 1000, rpe: 8 } as WorkoutStep,
-    { id: station.id, kind: "station", station: station.id, mode: station.unit === "reps" ? "reps" : "distance", value: raceValueFor(division, station.id), loadKg: defaultLoadFor(division, station.id), rpe: 9 } as WorkoutStep,
+    { id: `run-${index + 1}`, kind: "run", label: `Run ${index + 1}`, mode: "distance", value: 1000 } as WorkoutStep,
+    { id: station.id, kind: "station", station: station.id, mode: station.unit === "reps" ? "reps" : "distance", value: raceValueFor(division, station.id), loadKg: defaultLoadFor(division, station.id) } as WorkoutStep,
   ]);
   return { blocks: [{ id: "race", rounds: 1, label: count === 8 ? "Full race" : "Half race", steps }] };
 }

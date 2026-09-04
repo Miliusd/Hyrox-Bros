@@ -7,11 +7,17 @@ import type { WorkoutType } from "@/lib/constants";
 import { getWorkoutDetail } from "@/lib/data";
 import { describeQuantity, formatDuration, stepTitle, type WorkoutStructure } from "@/lib/workout";
 
+type RecordedStrength = { stepId: string; exercise?: string; actualLoadKg?: number; actualReps?: number };
+
 export default async function WorkoutPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const workout = await getWorkoutDetail(id);
   if (!workout) notFound();
   const structure = workout.structure as WorkoutStructure;
+  const result = workout.workout_results?.[0];
+  const recordedStrength = Array.isArray(result?.step_results)
+    ? (result.step_results as RecordedStrength[]).filter((step) => step.exercise && step.actualLoadKg && step.actualReps)
+    : [];
 
   return (
     <div className="py-6">
@@ -38,7 +44,7 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
                   {block.steps.map((step, index) => (
                     <div className="rounded-xl bg-ink-900 p-3" key={step.id}>
                       <b>{index + 1}. {stepTitle(step)}</b>
-                      <div className="text-sm text-ink-400">{describeQuantity(step)}{step.loadKg ? ` · ${step.loadKg} kg` : ""}{step.rpe ? ` · RPE ${step.rpe}` : ""}</div>
+                      <div className="text-sm text-ink-400">{describeQuantity(step)}{step.loadKg ? ` · ${step.loadKg} kg` : ""}</div>
                     </div>
                   ))}
                 </div>
@@ -47,13 +53,31 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
           </section>
           <CommentThread workoutId={id} initialComments={workout.comments ?? []} />
         </div>
-        {workout.status === "completed" && workout.workout_results?.length ? (
+        {workout.status === "completed" && result ? (
           <section className="card h-fit">
             <h2 className="text-xl font-black">Completed</h2>
-            <p className="mt-3 text-3xl font-black text-brand-400">{workout.workout_results[0].load} load</p>
-            <p className="mt-2 text-ink-400">{formatDuration(workout.workout_results[0].duration_sec)} · RPE {workout.workout_results[0].rpe}</p>
+            <p className="mt-3 text-3xl font-black text-brand-400">{result.load} load</p>
+            <div className="mt-2 space-y-1 text-ink-400">
+              <p>{formatDuration(result.duration_sec)}</p>
+              {result.calories && <p>{result.calories} kcal</p>}
+              {result.distance_m && <p>{Number((Number(result.distance_m) / 1000).toFixed(2))} km</p>}
+              {result.average_hr_bpm && <p>Average HR {result.average_hr_bpm} bpm{workout.profiles.max_hr_bpm ? ` · ${Math.round(Number(result.average_hr_bpm) / Number(workout.profiles.max_hr_bpm) * 100)}% max` : ""}</p>}
+            </div>
+            {recordedStrength.length > 0 && (
+              <div className="mt-4 border-t border-ink-700 pt-4">
+                <h3 className="font-black">Strength sets</h3>
+                <div className="mt-2 space-y-2">
+                  {recordedStrength.map((step) => (
+                    <div className="flex justify-between gap-3 rounded-lg bg-ink-900 p-2 text-sm" key={step.stepId}>
+                      <span>{step.exercise}</span>
+                      <b className="text-brand-400">{step.actualLoadKg} kg × {step.actualReps}</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
-        ) : <ResultLogger workoutId={id} type={workout.type as WorkoutType} />}
+        ) : <ResultLogger workoutId={id} type={workout.type as WorkoutType} structure={structure} maxHrBpm={workout.profiles.max_hr_bpm ? Number(workout.profiles.max_hr_bpm) : null} />}
       </div>
     </div>
   );

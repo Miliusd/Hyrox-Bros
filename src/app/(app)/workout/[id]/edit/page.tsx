@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { WorkoutBuilder } from "@/components/workout-builder";
+import { ResultLogger, type StrengthResultInput } from "@/components/result-logger";
 import type { WorkoutType } from "@/lib/constants";
 import { getWorkoutDetail } from "@/lib/data";
 import { getMembers, requireProfile } from "@/lib/session";
@@ -9,6 +10,10 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const [me, members, workout] = await Promise.all([requireProfile(), getMembers(), getWorkoutDetail(id)]);
   if (!workout) notFound();
+  const result = workout.workout_results?.[0];
+  const stepResults = Array.isArray(result?.step_results)
+    ? (result.step_results as StrengthResultInput[]).filter((step) => step.exercise && step.actualLoadKg && step.actualReps)
+    : [];
 
   return (
     <div className="py-6">
@@ -25,8 +30,30 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
           type: workout.type as WorkoutType,
           structure: workout.structure as WorkoutStructure,
           coachNotes: workout.coach_notes ?? "",
+          plannedDurationSec: Number(workout.planned_duration_sec),
+          plannedLoad: Number(workout.planned_load),
         }}
       />
+      {result && (
+        <div className="mt-6">
+          <ResultLogger
+            workoutId={workout.id}
+            type={workout.type as WorkoutType}
+            structure={workout.structure as WorkoutStructure}
+            maxHrBpm={workout.profiles.max_hr_bpm ? Number(workout.profiles.max_hr_bpm) : null}
+            initialResult={{
+              durationSec: Number(result.duration_sec),
+              calories: result.calories ? Number(result.calories) : null,
+              distanceMeters: result.distance_m ? Number(result.distance_m) : null,
+              averageHrBpm: result.average_hr_bpm ? Number(result.average_hr_bpm) : null,
+              load: Number(result.load),
+              feeling: result.feeling ? Number(result.feeling) : null,
+              notes: result.notes ?? "",
+              stepResults,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

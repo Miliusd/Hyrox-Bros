@@ -2,13 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import type { WorkoutType } from "@/lib/constants";
-import { calculateLoad } from "@/lib/load";
+import { calculateHeartRateLoad, calculatePlannedLoad, compatibilityRpeFromHeartRate } from "@/lib/load";
 import { requireProfile } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { resultSchema, workoutSchema } from "@/lib/validation";
-import { estimateStructureSeconds, structureAverageRpe } from "@/lib/workout";
+import { estimateStructureSeconds } from "@/lib/workout";
 
-type Result = { ok: boolean; error?: string; id?: string };
+type Result = { ok: boolean; error?: string; id?: string; newPbs?: string[]; warning?: string };
+
+function strengthStation(exercise: string) {
+  const slug = exercise
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return `strength_${slug || "exercise"}`;
+}
 
 export async function saveWorkout(input: unknown): Promise<Result> {
   const parsed = workoutSchema.safeParse(input);
@@ -18,8 +28,15 @@ export async function saveWorkout(input: unknown): Promise<Result> {
     const me = await requireProfile();
     const target = (await db.from("profiles").select("threshold_pace_sec_per_km").eq("id", parsed.data.athleteId).single()).data;
     const pace = target?.threshold_pace_sec_per_km ?? 270;
-    const duration = Math.round(estimateStructureSeconds(parsed.data.structure, pace));
-    const load = calculateLoad(duration, structureAverageRpe(parsed.data.structure, pace), parsed.data.type as WorkoutType);
+    let duration = Math.round(estimateStructureSeconds(parsed.data.structure, pace));
+    let load = calculatePlannedLoad(duration, parsed.data.type as WorkoutType);
+    const hasPlannedSteps = parsed.data.structure.blocks.some((block) => block.steps.length > 0);
+    if (parsed.data.id && !hasPlannedSteps) {
+      const existing = await db.from("workouts").select("planned_duration_sec,planned_load").eq("id", parsed.data.id).single();
+      if (existing.error) throw existing.error;
+      duration = Number(existing.data.planned_duration_sec);
+      load = Number(existing.data.planned_load);
+    }
     const values = {
       athlete_id: parsed.data.athleteId,
       date: parsed.data.date,
@@ -81,14 +98,21 @@ export async function logResult(input: unknown): Promise<Result> {
     await requireProfile();
     const workout = (await db.from("workouts").select("athlete_id,date,type").eq("id", parsed.data.workoutId).single()).data;
     if (!workout) throw new Error("Workout not found");
-    const load = calculateLoad(parsed.data.durationSec, parsed.data.rpe, workout.type as WorkoutType, parsed.data.calories);
+    const athlete = await db.from("profiles").select("max_hr_bpm").eq("id", workout.athlete_id).single();
+    if (athlete.error) throw athlete.error;
+    const maxHrBpm = Number(athlete.data.max_hr_bpm);
+    if (!maxHrBpm) throw new Error("Set this athlete's maximum heart rate in their profile before completing the workout.");
+    if (parsed.data.averageHrBpm > maxHrBpm) throw new Error("Average heart rate cannot be higher than maximum heart rate.");
+    const load = calculateHeartRateLoad(parsed.data.durationSec, parsed.data.averageHrBpm, maxHrBpm, workout.type as WorkoutType, parsed.data.calories);
     const { error } = await db.from("workout_results").upsert({
       workout_id: parsed.data.workoutId,
       athlete_id: workout.athlete_id,
       date: workout.date,
       duration_sec: parsed.data.durationSec,
       calories: parsed.data.calories,
-      rpe: parsed.data.rpe,
+      distance_m: parsed.data.distanceMeters,
+      average_hr_bpm: parsed.data.averageHrBpm,
+      rpe: compatibilityRpeFromHeartRate(parsed.data.averageHrBpm, maxHrBpm),
       feeling: parsed.data.feeling,
       load,
       notes: parsed.data.notes,
@@ -96,9 +120,56 @@ export async function logResult(input: unknown): Promise<Result> {
     }, { onConflict: "workout_id" });
     if (error) throw error;
     await db.from("workouts").update({ status: "completed" }).eq("id", parsed.data.workoutId);
+
+    const strengthBests = new Map<string, { exercise: string; load: number; reps: number }>();
+    for (const step of parsed.data.stepResults) {
+      if (!step.exercise || !step.actualLoadKg || !step.actualReps) continue;
+      const station = strengthStation(step.exercise);
+      const current = strengthBests.get(station);
+      if (!current || step.actualLoadKg > current.load) {
+        strengthBests.set(station, { exercise: step.exercise, load: step.actualLoadKg, reps: step.actualReps });
+      }
+    }
+
+    const newPbs: string[] = [];
+    let pbWarning = false;
+    for (const [station, best] of strengthBests) {
+      const previous = await db.from("station_results")
+        .select("value")
+        .eq("athlete_id", workout.athlete_id)
+        .eq("station", station)
+        .eq("metric", "max_kg")
+        .order("value", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (previous.error) {
+        pbWarning = true;
+        continue;
+      }
+      if (previous.data && Number(previous.data.value) >= best.load) continue;
+      const pb = await db.from("station_results").insert({
+        athlete_id: workout.athlete_id,
+        workout_id: parsed.data.workoutId,
+        date: workout.date,
+        station,
+        metric: "max_kg",
+        value: best.load,
+        load_kg: best.load,
+        notes: `${best.reps} reps · Auto from workout`,
+      });
+      if (pb.error) pbWarning = true;
+      else newPbs.push(best.exercise);
+    }
+
     revalidatePath("/");
     revalidatePath(`/workout/${parsed.data.workoutId}`);
-    return { ok: true, id: parsed.data.workoutId };
+    revalidatePath("/pbs");
+    return {
+      ok: true,
+      id: parsed.data.workoutId,
+      newPbs,
+      warning: pbWarning ? "Workout was saved, but one or more PB records could not be updated." : undefined,
+    };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not log result" };
   }
@@ -111,14 +182,20 @@ export async function quickLogActivity(input: {
   type: WorkoutType;
   durationSec: number;
   calories?: number;
-  rpe: number;
+  distanceMeters?: number;
+  averageHrBpm: number;
   feeling?: number;
   notes?: string;
 }): Promise<Result> {
   try {
     const db = await createClient();
     const me = await requireProfile();
-    const load = calculateLoad(input.durationSec, input.rpe, input.type, input.calories);
+    const athlete = await db.from("profiles").select("max_hr_bpm").eq("id", input.athleteId).single();
+    if (athlete.error) throw athlete.error;
+    const maxHrBpm = Number(athlete.data.max_hr_bpm);
+    if (!maxHrBpm) throw new Error("Set this athlete's maximum heart rate in their profile before logging the workout.");
+    if (!Number.isInteger(input.averageHrBpm) || input.averageHrBpm < 40 || input.averageHrBpm > maxHrBpm) throw new Error("Enter a valid average heart rate that does not exceed maximum heart rate.");
+    const load = calculateHeartRateLoad(input.durationSec, input.averageHrBpm, maxHrBpm, input.type, input.calories);
     const { data, error } = await db.from("workouts").insert({
       athlete_id: input.athleteId,
       created_by: me.id,
@@ -137,7 +214,9 @@ export async function quickLogActivity(input: {
       date: input.date,
       duration_sec: input.durationSec,
       calories: input.calories,
-      rpe: input.rpe,
+      distance_m: input.distanceMeters,
+      average_hr_bpm: input.averageHrBpm,
+      rpe: compatibilityRpeFromHeartRate(input.averageHrBpm, maxHrBpm),
       feeling: input.feeling,
       load,
       notes: input.notes,

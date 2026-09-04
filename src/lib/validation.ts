@@ -1,3 +1,29 @@
 import { z } from "zod";
-export const workoutSchema = z.object({ id: z.uuid().optional(), athleteId: z.uuid(), date: z.iso.date(), title: z.string().trim().min(1).max(200), type: z.enum(["run","erg","strength","hyrox_sim","compromised","recovery","other"]), structure: z.object({ blocks: z.array(z.any()) }), coachNotes: z.string().max(5000).optional() });
-export const resultSchema = z.object({ workoutId: z.uuid(), durationSec: z.number().int().positive(), calories: z.number().int().positive().optional(), rpe: z.number().int().min(1).max(10), feeling: z.number().int().min(1).max(5).nullable(), notes: z.string().max(5000).optional(), stepResults: z.array(z.object({ stepId: z.string(), round: z.number().int().positive(), durationSec: z.number().int().nonnegative() })) });
+
+export const workoutSchema = z.object({
+  id: z.uuid().optional(),
+  athleteId: z.uuid(),
+  date: z.iso.date(),
+  title: z.string().trim().min(1).max(200),
+  type: z.enum(["run", "erg", "strength", "hyrox_sim", "compromised", "recovery", "other"]),
+  structure: z.object({ blocks: z.array(z.any()) }),
+  coachNotes: z.string().max(5000).optional(),
+});
+
+export const resultSchema = z.object({
+  workoutId: z.uuid(),
+  durationSec: z.number().int().positive(),
+  calories: z.number().int().positive().optional(),
+  distanceMeters: z.number().positive().optional(),
+  averageHrBpm: z.number().int().min(40).max(230),
+  feeling: z.number().int().min(1).max(5).nullable(),
+  notes: z.string().max(5000).optional(),
+  stepResults: z.array(z.object({
+    stepId: z.string(),
+    round: z.number().int().positive(),
+    durationSec: z.number().int().nonnegative().optional(),
+    exercise: z.string().trim().min(1).max(200).optional(),
+    actualLoadKg: z.number().positive().optional(),
+    actualReps: z.number().int().positive().optional(),
+  })),
+});

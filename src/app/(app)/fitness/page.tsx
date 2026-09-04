@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format, subDays } from "date-fns";
+import { eachDayOfInterval, format } from "date-fns";
 import { AthletePicker } from "@/components/athlete-picker";
 import { FitnessChart } from "@/components/fitness-chart";
 import { LoadExplainer } from "@/components/load-explainer";
@@ -12,7 +12,7 @@ export default async function FitnessPage({ searchParams }: { searchParams: Prom
   if (!isSupabaseConfigured()) return <SetupNotice/>;
   const params = await searchParams; const me = await requireProfile(); const members = await getMembers();
   const athleteId = members.some((member) => member.id === params.athlete) ? params.athlete! : me.id;
-  const end = new Date(); const start = subDays(end, 89); const dates = Array.from({ length: 90 }, (_, index) => format(subDays(end, 89 - index), "yyyy-MM-dd"));
+  const end = new Date(); const start = new Date(2026, 8, 1); const dates = eachDayOfInterval({ start, end }).map((date) => format(date, "yyyy-MM-dd"));
   const rows = await getFitnessRows(athleteId, format(start, "yyyy-MM-dd"), format(end, "yyyy-MM-dd"));
   const dailyLoad: Record<string, number> = {}; for (const row of rows) dailyLoad[row.date] = (dailyLoad[row.date] ?? 0) + Number(row.load);
   const series = buildFitnessSeries(dates, dailyLoad); const last = series.at(-1)!; const band = formBand(last.form);

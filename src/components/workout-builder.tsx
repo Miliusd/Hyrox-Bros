@@ -5,8 +5,8 @@ import { useMemo, useState, useTransition } from "react";
 import { saveWorkout } from "@/lib/actions/workouts";
 import { WORKOUT_TYPES, type WorkoutType } from "@/lib/constants";
 import type { Division } from "@/lib/hyrox";
-import { calculateLoad } from "@/lib/load";
-import { estimateStructureSeconds, formatDuration, structureAverageRpe, type WorkoutStructure } from "@/lib/workout";
+import { calculatePlannedLoad } from "@/lib/load";
+import { estimateStructureSeconds, formatDuration, type WorkoutStructure } from "@/lib/workout";
 import { StructureEditor } from "./structure-editor";
 
 type Member = { id: string; display_name: string; emoji: string; division: Division };
@@ -18,6 +18,8 @@ export type InitialWorkout = {
   type: WorkoutType;
   structure: WorkoutStructure;
   coachNotes: string;
+  plannedDurationSec: number;
+  plannedLoad: number;
 };
 
 export function WorkoutBuilder({
@@ -42,9 +44,12 @@ export function WorkoutBuilder({
   const [error, setError] = useState("");
   const selectedMember = members.find((member) => member.id === athleteId) ?? members[0];
   const stats = useMemo(() => {
+    if (initialWorkout && !structure.blocks.some((block) => block.steps.length > 0)) {
+      return { seconds: initialWorkout.plannedDurationSec, load: initialWorkout.plannedLoad };
+    }
     const seconds = estimateStructureSeconds(structure);
-    return { seconds, load: calculateLoad(seconds, structureAverageRpe(structure), type) };
-  }, [structure, type]);
+    return { seconds, load: calculatePlannedLoad(seconds, type) };
+  }, [initialWorkout, structure, type]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
