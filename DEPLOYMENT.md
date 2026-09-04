@@ -39,6 +39,15 @@ In Supabase, open **Authentication → URL Configuration**:
 
 In **Authentication → Providers**, ensure Email is enabled. Passwords are not needed.
 
+Then open **Authentication → Email Templates → Magic Link** and replace the template with:
+
+```html
+<h2>Your HyroxBros sign-in link</h2>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">Sign in</a></p>
+```
+
+This token-hash callback works even when the email link opens in a different browser from the one that requested it.
+
 ## 5. Invite the crew
 
 Share the Vercel URL with the four friends whose addresses are in `allowed_members`. Each person enters that exact email on the login page and uses the magic link. Their profile is created automatically on first sign-in.
