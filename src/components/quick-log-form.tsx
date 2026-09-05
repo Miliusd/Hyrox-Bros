@@ -1,4 +1,5 @@
 "use client";
+import { DecimalInput } from "@/components/decimal-input";
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -93,7 +94,7 @@ export function QuickLogForm({ members, currentUserId }: { members: Member[]; cu
       {distanceRelevant && (
         <label className="block max-w-xs">
           <span className="label">Distance km</span>
-          <input className="input" type="number" inputMode="decimal" min="0.01" step="0.01" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} placeholder="Optional" />
+          <DecimalInput className="input" min="0.01" step="0.01" value={distanceKm} onValueChange={(raw) => setDistanceKm(raw)} placeholder="Optional" />
         </label>
       )}
       <label className="block max-w-xs">
@@ -110,10 +111,10 @@ export function QuickLogForm({ members, currentUserId }: { members: Member[]; cu
       )}
       <fieldset>
         <legend className="label">Feeling</legend>
-        <div className="flex gap-2">{["😫", "🙁", "😐", "🙂", "🤩"].map((emoji, index) => <button type="button" key={emoji} onClick={() => setFeeling(index + 1)} className={`grid size-12 place-items-center rounded-xl border bg-ink-900 text-xl ${feeling === index + 1 ? "border-brand-400" : "border-ink-600"}`}>{emoji}</button>)}</div>
+        <div className="flex gap-2">{["Very hard", "Hard", "Okay", "Good", "Great"].map((label, index) => <button type="button" key={label} onClick={() => setFeeling(index + 1)} aria-label={label} aria-pressed={feeling === index + 1} className={`grid size-12 place-items-center rounded-xl border bg-ink-900 text-xl ${feeling === index + 1 ? "border-brand-400" : "border-ink-600"}`}><span aria-hidden="true">{["😫", "🙁", "😐", "🙂", "🤩"][index]}</span></button>)}</div>
       </fieldset>
       <label><span className="label">Notes</span><textarea className="input min-h-24 py-3" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-      {error && <p className="rounded-xl border border-red-800 bg-red-950/40 p-3 text-red-300">{error}</p>}
+      {error && <p className="rounded-xl border border-red-800 bg-red-950/40 p-3 text-red-300" role="alert">{error}</p>}
       <button className="btn-primary w-full" disabled={pending}>{pending ? "Saving…" : `Log activity · ${load} load`}</button>
     </form>
   );

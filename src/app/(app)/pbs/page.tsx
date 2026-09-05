@@ -24,6 +24,7 @@ export default async function PbsPage() {
         <section className="card overflow-x-auto">
           {results.length ? (
             <table className="w-full min-w-[32rem] text-left">
+              <caption className="sr-only">Personal best results by athlete, test, result, and date</caption>
               <thead className="text-sm text-ink-400">
                 <tr><th className="pb-3">Athlete</th><th className="pb-3">Test</th><th className="pb-3">Result</th><th className="pb-3">Date</th></tr>
               </thead>

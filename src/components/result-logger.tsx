@@ -1,4 +1,5 @@
 "use client";
+import { DecimalInput } from "@/components/decimal-input";
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -145,7 +146,7 @@ export function ResultLogger({
           <input className="input" type="number" inputMode="numeric" min="40" max={maxHrBpm ?? 230} step="1" value={averageHr} onChange={(event) => setAverageHr(event.target.value)} placeholder="Required" required />
           {maxHrBpm && <span className="mt-1 block text-sm text-ink-400">Max HR: {maxHrBpm} bpm{intensityPercent ? ` · ${intensityPercent}%` : ""}</span>}
         </label>
-        {distanceRelevant && <label><span className="label">Distance km</span><input className="input" type="number" inputMode="decimal" min="0.01" step="0.01" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} placeholder="Optional" /></label>}
+        {distanceRelevant && <label><span className="label">Distance km</span><DecimalInput className="input" min="0.01" step="0.01" value={distanceKm} onValueChange={(raw) => setDistanceKm(raw)} placeholder="Optional" /></label>}
       </div>
       {strengthSteps.length > 0 && (
         <fieldset className="rounded-xl border border-ink-700 bg-ink-900 p-3 sm:p-4">
@@ -168,7 +169,7 @@ export function ResultLogger({
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <label>
                       <span className="label">Weight <span className="font-normal text-ink-400">kg</span></span>
-                      <input className="input text-center font-bold" type="number" inputMode="decimal" min="0.5" step="0.5" value={actual?.load ?? ""} onChange={(event) => updateStrength(step.id, "load", event.target.value)} placeholder={step.loadKg?.toString() ?? "0"} />
+                      <DecimalInput className="input text-center font-bold" min="0.5" step="0.5" value={actual?.load ?? ""} onValueChange={(raw) => updateStrength(step.id, "load", raw)} placeholder={step.loadKg?.toString() ?? "0"} />
                     </label>
                     <label>
                       <span className="label">Reps</span>
@@ -182,10 +183,10 @@ export function ResultLogger({
         </fieldset>
       )}
       <div className="rounded-xl bg-brand-400 p-3 text-center text-ink-950"><div className="text-sm font-bold">Heart-rate training load</div><div className="text-2xl font-black">{load}</div></div>
-      <div className="flex gap-2">
-        {["😫", "🙁", "😐", "🙂", "🤩"].map((emoji, index) => <button type="button" key={emoji} onClick={() => setFeeling(index + 1)} className={`grid size-11 place-items-center rounded-xl border bg-ink-900 ${feeling === index + 1 ? "border-brand-400" : "border-ink-600"}`}>{emoji}</button>)}
-      </div>
-      <textarea className="input min-h-20 py-3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="How did it go?" />
+      <fieldset><legend className="label">Feeling</legend><div className="flex gap-2">
+        {["Very hard", "Hard", "Okay", "Good", "Great"].map((label, index) => <button type="button" key={label} onClick={() => setFeeling(index + 1)} aria-label={label} aria-pressed={feeling === index + 1} className={`grid size-11 place-items-center rounded-xl border bg-ink-900 ${feeling === index + 1 ? "border-brand-400" : "border-ink-600"}`}><span aria-hidden="true">{["😫", "🙁", "😐", "🙂", "🤩"][index]}</span></button>)}
+      </div></fieldset>
+      <label><span className="label">Notes</span><textarea className="input min-h-20 py-3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="How did it go?" /></label>
       {message && <p className={saved ? "text-emerald-300" : "text-red-300"} role="status">{message}</p>}
       <button className="btn-primary w-full" disabled={pending || !durationSec || !maxHrBpm}>{pending ? "Saving…" : initialResult ? "Save result changes" : "Mark complete"}</button>
     </form>

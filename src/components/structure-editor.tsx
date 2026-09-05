@@ -1,4 +1,5 @@
 "use client";
+import { DecimalInput } from "@/components/decimal-input";
 
 import { useState } from "react";
 import { defaultLoadFor, standardFor, STATIONS, type Division } from "@/lib/hyrox";
@@ -232,9 +233,9 @@ export function StructureEditor({ value, onChange, division = "men_open" }: { va
                       </label>
                       <label>
                         <span className="label">{detail.amountLabel} ({detail.unit})</span>
-                        <input className="input" type="number" min="0" step={step.mode === "duration" ? "0.5" : "1"} value={displayedAmount(step)} onChange={(event) => changeAmount(blockIndex, stepIndex, step, event.target.value)} />
+                        <DecimalInput className="input" min="0" step={step.mode === "reps" || step.mode === "calories" ? "1" : "any"} value={displayedAmount(step)} onValueChange={(raw) => changeAmount(blockIndex, stepIndex, step, raw)} />
                       </label>
-                      {showLoad && <label><span className="label">Load (kg)</span><input className="input" type="number" min="0" step="0.5" value={step.loadKg ?? ""} onChange={(event) => updateStep(blockIndex, stepIndex, { loadKg: event.target.value ? Number(event.target.value) : undefined })} /></label>}
+                      {showLoad && <label><span className="label">Load (kg)</span><DecimalInput className="input" min="0" step="0.5" value={step.loadKg ?? ""} onValueChange={(raw) => updateStep(blockIndex, stepIndex, { loadKg: raw ? Number(raw) : undefined })} /></label>}
                       {step.kind !== "rest" && <label><span className="label">Rest (sec)</span><input className="input" type="number" min="0" value={step.restSec ?? ""} onChange={(event) => updateStep(blockIndex, stepIndex, { restSec: Number(event.target.value) || undefined })} /></label>}
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-700 pt-3">

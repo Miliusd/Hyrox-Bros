@@ -12,6 +12,13 @@ export const STATIONS = [
 export type StationId = (typeof STATIONS)[number]["id"];
 export type Division = "men_open" | "women_open" | "men_pro" | "women_pro";
 
+export const DIVISION_LABELS: Record<Division, string> = {
+  men_open: "Men Open",
+  women_open: "Women Open",
+  men_pro: "Men Pro",
+  women_pro: "Women Pro",
+};
+
 const LOADS: Record<Division, Partial<Record<StationId, number>>> = {
   men_open: { sled_push: 152, sled_pull: 103, farmers_carry: 24, sandbag_lunges: 20, wall_balls: 6 },
   women_open: { sled_push: 102, sled_pull: 78, farmers_carry: 16, sandbag_lunges: 10, wall_balls: 4 },
@@ -26,8 +33,8 @@ export function standardFor(division: Division, station: StationId) {
   return { ...item, value: raceValueFor(division, station), loadKg, targetM };
 }
 
-export function raceValueFor(division: Division, station: StationId) {
-  return station === "wall_balls" && division.endsWith("pro") ? 75 : STATIONS.find((item) => item.id === station)!.value;
+export function raceValueFor(_division: Division, station: StationId) {
+  return STATIONS.find((item) => item.id === station)!.value;
 }
 
 export function defaultLoadFor(division: Division, station: StationId) {

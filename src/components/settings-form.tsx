@@ -1,4 +1,5 @@
 "use client";
+import { DecimalInput } from "@/components/decimal-input";
 
 import { useState, useTransition } from "react";
 import { updateProfile } from "@/lib/actions/profile";
@@ -92,7 +93,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
         </label>
         <label>
           <span className="label">Weight kg</span>
-          <input className="input" type="number" min="1" step="0.1" value={weight} onChange={(event) => setWeight(event.target.value)} />
+          <DecimalInput className="input" min="1" step="0.1" value={weight} onValueChange={(raw) => setWeight(raw)} />
         </label>
       </div>
       <label className="block max-w-xs">
@@ -108,7 +109,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
         <span className="label">Race date</span>
         <input className="input" type="date" value={raceDate} onChange={(event) => setRaceDate(event.target.value)} />
       </label>
-      {message && <p className={message === "Profile saved." ? "text-emerald-300" : "text-red-300"}>{message}</p>}
+      {message && <p className={message === "Profile saved." ? "text-emerald-300" : "text-red-300"} role="status">{message}</p>}
       <button className="btn-primary" disabled={pending}>{pending ? "Saving…" : "Save profile"}</button>
     </form>
   );
